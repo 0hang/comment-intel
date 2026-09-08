@@ -1,5 +1,7 @@
 # Comment Intel — 评论区情报
 
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
 把「评论区」从散装文本变成可交互、可追溯的知识图谱，并产出可直接用的内容结论：**关注点 TOP 榜、内容缺口选题、共现簇、金句库、成果案例**。
 
 自包含单 Skill：多平台采集（只读）→ 格式化 → 定制词表 → 逐条抽取 → 建图渲染 → 交付解读/每日飞书简报，全部内置，不依赖其他 skill。
@@ -84,3 +86,7 @@ comment-intel/
 
 - 采集路由与平台命令整合自 [Agent-Reach](https://github.com/Panniantong/Agent-Reach)
 - 图谱分析流程、schema 与脚本（build_graph/render/export）整合自 [cheat-on-audience](https://github.com/XBuilderLAB/cheat-on-audience)
+
+## License
+
+[MIT](LICENSE)
