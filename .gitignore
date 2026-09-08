@@ -1,0 +1,15 @@
+# 中间产物（含评论原文，公开前由用户决定是否纳入）
+data/
+atlas.html
+bilibili/
+
+# 本机私有配置（不进仓库）
+references/local-setup.md
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store
+Thumbs.db

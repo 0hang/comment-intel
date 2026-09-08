@@ -1,0 +1,14 @@
+# Comment Intel
+
+> 评论区情报：多平台评论区采集 → 受众关注点/内容缺口/金句/成果图谱 → 内容选题与每日飞书简报。
+
+## 资源
+
+- [SKILL.md](SKILL.md): 主流程——即时分析（平台链接/评论文件 → 图谱 + 五类结论）与每日情报简报
+- [采集路由](references/collect.md): B站/小红书/抖音/X/YouTube/Reddit 的只读采集命令、字段映射、登录态与频率控制
+- [抽取规范](references/schema.md): 逐条评论的结构化字段定义与词表（关注点/人群/应对/信号）
+- [图谱产物说明](README.md): 目录结构、快速开始、隐私边界
+
+## 依赖通道
+
+opencli（小红书/X/Reddit）、douyin MCP（抖音）、twitter-cli（X）、yt-dlp（YouTube）、curl（B站官方 API）

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__TITLE__</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0e1117; color: #e6edf3;
+  }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+
+  header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    padding: 14px 20px; pointer-events: none;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 17px; font-weight: 600; letter-spacing: .5px; }
+  header span { font-size: 12px; color: #8b949e; }
+
+  #panel {
+    position: absolute; top: 50px; left: 20px; z-index: 5;
+    display: flex; flex-direction: column; gap: 6px; width: 158px;
+  }
+  .chip {
+    font-family: inherit; color: #e6edf3; width: 100%; text-align: left;
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(22,27,34,.88); border: 1px solid #30363d;
+    border-radius: 20px; padding: 4px 12px 4px 8px;
+    font-size: 12px; cursor: pointer; user-select: none;
+    transition: opacity .15s;
+  }
+  .chip.off { opacity: .32; }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .chip b { margin-left: auto; font-weight: 400; color: #6e7681; font-size: 11px; }
+  .sep { height: 8px; }
+  #search {
+    background: rgba(22,27,34,.88); border: 1px solid #30363d; color: #e6edf3;
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; width: 100%;
+    font-family: inherit; outline: none;
+  }
+  #search:focus { border-color: #58a6ff; }
+  .sig {
+    font-family: inherit; color: #e6edf3; width: 100%;
+    background: rgba(22,27,34,.88); border: 1px solid #30363d;
+    border-radius: 8px; padding: 5px 10px; font-size: 12px;
+    cursor: pointer; user-select: none; text-align: center;
+  }
+  .sig.on { border-color: #58a6ff; color: #58a6ff; }
+
+  #tooltip {
+    position: absolute; z-index: 8; pointer-events: none; display: none;
+    max-width: 300px; background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  #tooltip .tag { font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-right: 6px; }
+  #tooltip .name { font-size: 14px; font-weight: 600; }
+  #tooltip .quote {
+    margin-top: 6px; padding: 6px 8px; background: #0e1117; border-radius: 6px;
+    color: #9da7b3; border-left: 2px solid #30363d;
+  }
+  #tooltip .hint { margin-top: 6px; color: #58a6ff; font-size: 11px; }
+
+  #drawer {
+    position: absolute; top: 0; right: 0; bottom: 0; z-index: 7;
+    width: min(420px, 94vw); background: #11151c; border-left: 1px solid #30363d;
+    transform: translateX(105%); transition: transform .25s ease;
+    display: flex; flex-direction: column;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer .head { padding: 18px 20px 12px; border-bottom: 1px solid #21262d; }
+  #drawer .head .tag { font-size: 11px; padding: 2px 10px; border-radius: 10px; }
+  #drawer .head h2 { font-size: 19px; margin-top: 8px; word-break: break-all; }
+  #drawer .head p { font-size: 12px; color: #8b949e; margin-top: 4px; }
+  #closeBtn {
+    position: absolute; top: 14px; right: 14px; background: none; border: none;
+    color: #8b949e; font-size: 18px; cursor: pointer;
+  }
+  #drawer .body { flex: 1; overflow-y: auto; padding: 14px 20px 30px; }
+  .rel { margin-bottom: 18px; }
+  .rel .relTitle { font-size: 13px; color: #c9d1d9; margin-bottom: 8px; }
+  .rel .relTitle b { color: #58a6ff; font-weight: 600; }
+  .ev {
+    background: #161b22; border: 1px solid #21262d; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 13px; line-height: 1.65;
+  }
+  .ev .meta { display: flex; gap: 10px; margin-top: 6px; font-size: 11px; color: #8b949e; flex-wrap: wrap; }
+  .ev .sarc { color: #d29922; }
+  .ev .ask { color: #58a6ff; }
+  .ev .win { color: #3fb950; }
+  footer {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 4; font-size: 11px; color: #6e7681; pointer-events: none; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <span>__SUBTITLE__</span>
+</header>
+
+<div id="panel">
+  <input id="search" placeholder="搜索节点或评论…" autocomplete="off">
+  <div class="sep"></div>
+  <div id="legend"></div>
+  <div class="sep"></div>
+  <button type="button" class="sig" data-sig="ask" aria-pressed="false">只看提问（内容缺口）</button>
+  <button type="button" class="sig" data-sig="win" aria-pressed="false">只看成果汇报</button>
+  <button type="button" class="sig" data-sig="sarcasm" aria-pressed="false">只看阴阳怪气</button>
+</div>
+
+<svg id="stage"></svg>
+<div id="tooltip"></div>
+
+<aside id="drawer">
+  <div class="head">
+    <button id="closeBtn" aria-label="关闭">✕</button>
+    <span class="tag" id="dTag"></span>
+    <h2 id="dName"></h2>
+    <p id="dMeta"></p>
+  </div>
+  <div class="body" id="dBody"></div>
+</aside>
+
+<footer>悬浮看摘要 · 点击节点看全部评论证据 · 拖动画布 · 滚轮缩放</footer>
+
+<script id="graph-data" type="application/json">__GRAPH_JSON__</script>
+<script>
+const GRAPH = JSON.parse(document.getElementById('graph-data').textContent);
+const TYPES = GRAPH.types;
+const NODES = GRAPH.nodes.map(n => ({...n}));
+const LINKS = GRAPH.links.map(l => ({...l}));
+
+const svg = document.getElementById('stage');
+const NS = 'http://www.w3.org/2000/svg';
+const tooltip = document.getElementById('tooltip');
+const drawer = document.getElementById('drawer');
+
+let W = innerWidth, H = innerHeight;
+function measure() {
+  const r = svg.getBoundingClientRect();
+  if (r.width > 50) { W = r.width; H = r.height; }
+}
+measure();
+
+const nodeMap = {};
+NODES.forEach((n, i) => {
+  n.links = [];
+  const ang = i / NODES.length * Math.PI * 2 - Math.PI / 2;
+  const rad = 200 + (i % 3) * 60;
+  n.x = W / 2 + Math.cos(ang) * rad;
+  n.y = H / 2 + Math.sin(ang) * rad;
+  n.vx = 0; n.vy = 0;
+  nodeMap[n.id] = n;
+});
+const validLinks = [];
+LINKS.forEach(l => {
+  const s = nodeMap[l.s], t = nodeMap[l.t];
+  if (!s || !t) return;
+  l.source = s; l.target = t;
+  s.links.push(l); t.links.push(l);
+  validLinks.push(l);
+});
+LINKS.length = 0; LINKS.push(...validLinks);
+
+const maxM = Math.max(...NODES.map(n => n.mentions || 0), 1);
+NODES.forEach(n => {
+  n.r = 8 + Math.sqrt((n.mentions || 0) / maxM) * 22;
+});
+
+const gRoot = document.createElementNS(NS, 'g');
+svg.appendChild(gRoot);
+const gLinks = document.createElementNS(NS, 'g');
+const gNodes = document.createElementNS(NS, 'g');
+gRoot.appendChild(gLinks); gRoot.appendChild(gNodes);
+
+const maxW = Math.max(...LINKS.map(l => l.w), 1);
+LINKS.forEach(l => {
+  l.el = document.createElementNS(NS, 'line');
+  l.el.setAttribute('stroke', '#3d444d');
+  l.el.setAttribute('stroke-width', .6 + Math.min(l.w / maxW, 1) * 3);
+  l.el.setAttribute('stroke-opacity', .5);
+  gLinks.appendChild(l.el);
+});
+
+NODES.forEach(n => {
+  const tv = TYPES[n.type] || { color: '#888780', label: n.type };
+  n.el = document.createElementNS(NS, 'g');
+  n.el.style.cursor = 'pointer';
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('r', n.r);
+  c.setAttribute('fill', tv.color);
+  c.setAttribute('fill-opacity', '.9');
+  c.setAttribute('stroke', '#0e1117');
+  c.setAttribute('stroke-width', '2');
+  const t = document.createElementNS(NS, 'text');
+  t.textContent = n.id.length > 14 ? n.id.slice(0, 13) + '…' : n.id;
+  t.setAttribute('y', n.r + 14);
+  t.setAttribute('text-anchor', 'middle');
+  t.setAttribute('font-size', '12');
+  t.setAttribute('fill', '#c9d1d9');
+  t.setAttribute('paint-order', 'stroke');
+  t.setAttribute('stroke', '#0e1117');
+  t.setAttribute('stroke-width', '3');
+  n.el.appendChild(c); n.el.appendChild(t);
+  n.circle = c;
+  gNodes.appendChild(n.el);
+
+  n.el.addEventListener('mouseenter', e => showTooltip(n, e));
+  n.el.addEventListener('mousemove', e => moveTooltip(e));
+  n.el.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+  n.el.addEventListener('click', e => { e.stopPropagation(); openDrawer(n); });
+
+  let dragging = false;
+  n.el.addEventListener('pointerdown', e => {
+    dragging = true; n.fixed = true;
+    e.stopPropagation(); e.preventDefault();
+    const move = ev => {
+      if (!dragging) return;
+      const p = toWorld(ev.clientX, ev.clientY);
+      n.x = p.x; n.y = p.y; n.vx = 0; n.vy = 0;
+      heat = Math.max(heat, .25);
+    };
+    const up = () => { dragging = false; n.fixed = false;
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+    addEventListener('pointermove', move); addEventListener('pointerup', up);
+  });
+});
+
+let view = { x: 0, y: 0, k: 1 };
+function toWorld(px, py) { return { x: (px - view.x) / view.k, y: (py - view.y) / view.k }; }
+function applyView() { gRoot.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`); }
+
+svg.addEventListener('pointerdown', e => {
+  svg.classList.add('dragging');
+  const sx = e.clientX - view.x, sy = e.clientY - view.y;
+  const move = ev => { view.x = ev.clientX - sx; view.y = ev.clientY - sy; applyView(); };
+  const up = () => { svg.classList.remove('dragging');
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up);
+});
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : .89;
+  const p = toWorld(e.clientX, e.clientY);
+  view.k = Math.min(3, Math.max(.2, view.k * f));
+  view.x = e.clientX - p.x * view.k;
+  view.y = e.clientY - p.y * view.k;
+  applyView();
+}, { passive: false });
+svg.addEventListener('click', () => drawer.classList.remove('open'));
+
+let heat = 1;
+let SIM = NODES, SIMLINKS = LINKS;
+function refreshSim() {
+  SIM = NODES.filter(n => !n.hidden);
+  SIMLINKS = LINKS.filter(l => !l.source.hidden && !l.target.hidden);
+  if (!SIM.length) { SIM = NODES; SIMLINKS = LINKS; }
+}
+refreshSim();
+function step() {
+  const cx = W / 2, cy = H / 2;
+  for (let i = 0; i < SIM.length; i++) {
+    const a = SIM[i];
+    for (let j = i + 1; j < SIM.length; j++) {
+      const b = SIM[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d2 = Math.max(dx * dx + dy * dy, 400);
+      if (d2 < 160000) {
+        const f = 4200 / d2 * heat;
+        const d = Math.sqrt(d2);
+        dx /= d; dy /= d;
+        a.vx -= dx * f; a.vy -= dy * f;
+        b.vx += dx * f; b.vy += dy * f;
+      }
+    }
+    a.vx += (cx - a.x) * .011 * heat;
+    a.vy += (cy - a.y) * .011 * heat;
+  }
+  SIMLINKS.forEach(l => {
+    const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    let f = (d - 150) * .035 * heat;
+    f = Math.max(-6, Math.min(6, f));
+    const ux = dx / d, uy = dy / d;
+    if (!l.source.fixed) { l.source.vx += ux * f; l.source.vy += uy * f; }
+    if (!l.target.fixed) { l.target.vx -= ux * f; l.target.vy -= uy * f; }
+  });
+  SIM.forEach(n => {
+    if (n.fixed) return;
+    n.vx *= .82; n.vy *= .82;
+    const sp = Math.hypot(n.vx, n.vy), mx = 18;
+    if (sp > mx) { n.vx *= mx / sp; n.vy *= mx / sp; }
+    n.x += n.vx; n.y += n.vy;
+  });
+  heat *= .996;
+}
+function render() {
+  LINKS.forEach(l => {
+    l.el.setAttribute('x1', l.source.x); l.el.setAttribute('y1', l.source.y);
+    l.el.setAttribute('x2', l.target.x); l.el.setAttribute('y2', l.target.y);
+  });
+  NODES.forEach(n => n.el.setAttribute('transform', `translate(${n.x},${n.y})`));
+}
+function fitView() {
+  const vis = SIM.length ? SIM : NODES;
+  const xs = vis.map(n => n.x), ys = vis.map(n => n.y);
+  const minX = Math.min(...xs) - 90, maxX = Math.max(...xs) + 90;
+  const minY = Math.min(...ys) - 70, maxY = Math.max(...ys) + 110;
+  const k = Math.min(W / (maxX - minX), H / (maxY - minY), 1.3);
+  view.k = k;
+  view.x = W / 2 - (minX + maxX) / 2 * k;
+  view.y = H / 2 - (minY + maxY) / 2 * k;
+  applyView();
+}
+function settle(steps) {
+  for (let i = 0; i < steps && heat > .003; i++) step();
+  render(); fitView();
+}
+settle(1200);
+function tick() {
+  if (heat > .003) { step(); render(); }
+  requestAnimationFrame(tick);
+}
+tick();
+setTimeout(() => {
+  const ow = W, oh = H; measure();
+  if (Math.abs(W - ow) > 20 || Math.abs(H - oh) > 20) { heat = .5; settle(500); }
+}, 400);
+addEventListener('resize', () => { measure(); heat = .5; settle(400); });
+
+const defaultOff = new Set((GRAPH.meta && GRAPH.meta.default_off) || []);
+const activeTypes = new Set(Object.keys(TYPES).filter(k => !defaultOff.has(k)));
+const counts = {};
+NODES.forEach(n => { counts[n.type] = (counts[n.type] || 0) + 1; });
+const legend = document.getElementById('legend');
+Object.entries(TYPES).forEach(([k, v]) => {
+  if (!counts[k]) return;
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.setAttribute('aria-pressed', defaultOff.has(k) ? 'false' : 'true');
+  chip.className = 'chip' + (defaultOff.has(k) ? ' off' : '');
+  chip.innerHTML = `<i style="background:${v.color}"></i>${v.label}<b>${counts[k]}</b>`;
+  chip.onclick = () => {
+    activeTypes.has(k) ? activeTypes.delete(k) : activeTypes.add(k);
+    chip.classList.toggle('off');
+    chip.setAttribute('aria-pressed', activeTypes.has(k) ? 'true' : 'false');
+    relayout();
+  };
+  legend.appendChild(chip);
+});
+
+let sigFilter = null;
+document.querySelectorAll('.sig').forEach(el => {
+  el.onclick = () => {
+    const s = el.dataset.sig;
+    sigFilter = sigFilter === s ? null : s;
+    document.querySelectorAll('.sig').forEach(x => {
+      const on = x.dataset.sig === sigFilter;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    relayout();
+  };
+});
+
+let query = '';
+document.getElementById('search').addEventListener('input', e => {
+  query = e.target.value.trim().toLowerCase();
+  applyVisibility();
+  render();
+});
+
+function linkMatchesSig(l) {
+  if (!sigFilter) return true;
+  return l.ev.some(e => e[sigFilter]);
+}
+function nodeMatchesQuery(n) {
+  if (!query) return true;
+  if (n.id.toLowerCase().includes(query)) return true;
+  return n.links.some(l => l.ev.some(e => (e.text || '').toLowerCase().includes(query)));
+}
+
+function applyVisibility() {
+  LINKS.forEach(l => {
+    const typeOk = activeTypes.has(l.source.type) && activeTypes.has(l.target.type);
+    const sigOk = linkMatchesSig(l);
+    const qOk = !query || nodeMatchesQuery(l.source) || nodeMatchesQuery(l.target);
+    l.visible = typeOk && sigOk && qOk;
+    l.el.setAttribute('display', l.visible ? '' : 'none');
+  });
+  NODES.forEach(n => {
+    const on = activeTypes.has(n.type) && n.links.some(l => l.visible) && nodeMatchesQuery(n);
+    n.hidden = !on;
+    n.el.setAttribute('display', on ? '' : 'none');
+  });
+  refreshSim();
+}
+function relayout() {
+  applyVisibility();
+  heat = 1;
+  settle(1000);
+}
+relayout();
+
+function evList(n) {
+  const seen = new Set(), out = [];
+  n.links.filter(l => l.visible).forEach(l => l.ev.forEach(e => {
+    if (seen.has(e.text)) return;
+    seen.add(e.text); out.push(e);
+  }));
+  return out;
+}
+
+function showTooltip(n, e) {
+  const tv = TYPES[n.type] || { color: '#888780', label: n.type };
+  const evs = evList(n);
+  const top = evs.slice().sort((a, b) => (b.like || 0) - (a.like || 0))[0];
+  tooltip.innerHTML = `
+    <span class="tag" style="background:${tv.color}22;color:${tv.color}">${tv.label}</span>
+    <span class="name">${esc(n.id)}</span>
+    <div style="margin-top:4px;color:#8b949e">被提及 ${n.mentions} 次 · ${evs.length} 条证据 · ${n.links.filter(l => l.visible).length} 条关系</div>
+    ${top ? `<div class="quote">"${esc(top.text.slice(0, 60))}"<br><span style="font-size:11px">👍 ${(top.like || 0).toLocaleString()}</span></div>` : ''}
+    <div class="hint">点击查看全部证据 →</div>`;
+  tooltip.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const pad = 14;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + 310 > innerWidth) x = e.clientX - 310;
+  if (y + 170 > innerHeight) y = e.clientY - 170;
+  tooltip.style.left = Math.max(4, x) + 'px';
+  tooltip.style.top = Math.max(4, y) + 'px';
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function openDrawer(n) {
+  tooltip.style.display = 'none';
+  const tv = TYPES[n.type] || { color: '#888780', label: n.type };
+  const tag = document.getElementById('dTag');
+  tag.textContent = tv.label;
+  tag.style.cssText = `background:${tv.color}22;color:${tv.color}`;
+  document.getElementById('dName').textContent = n.id;
+  const total = n.links.reduce((s, l) => s + l.ev.length, 0);
+  document.getElementById('dMeta').textContent =
+    `被提及 ${n.mentions} 次 · ${n.links.length} 条关系 · ${total} 条评论证据`;
+  const body = document.getElementById('dBody');
+  body.innerHTML = '';
+  n.links.slice().sort((a, b) => b.w - a.w).forEach(l => {
+    if (!l.visible) return;
+    const other = l.source === n ? l.target : l.source;
+    const dir = l.source === n
+      ? `${esc(n.id)} <b>${l.rel}</b> ${esc(other.id)}`
+      : `${esc(other.id)} <b>${l.rel}</b> ${esc(n.id)}`;
+    const rel = document.createElement('div');
+    rel.className = 'rel';
+    rel.innerHTML = `<div class="relTitle">${dir} <span style="color:#6e7681">· ${l.w} 条评论</span></div>`;
+    l.ev.forEach(ev => {
+      const card = document.createElement('div');
+      card.className = 'ev';
+      card.innerHTML = `"${esc(ev.text)}"
+        <div class="meta">
+          <span>👍 ${(ev.like || 0).toLocaleString()}</span>
+          ${ev.stance ? `<span>${esc(ev.stance)}</span>` : ''}
+          <span>《${esc(ev.video || '')}》</span>
+          ${ev.sarcasm ? '<span class="sarc">⚠ 阴阳怪气</span>' : ''}
+          ${ev.ask ? '<span class="ask">? 提问</span>' : ''}
+          ${ev.win ? '<span class="win">✓ 成果</span>' : ''}
+        </div>`;
+      rel.appendChild(card);
+    });
+    body.appendChild(rel);
+  });
+  drawer.classList.add('open');
+}
+document.getElementById('closeBtn').onclick = () => drawer.classList.remove('open');
+addEventListener('keydown', e => { if (e.key === 'Escape') drawer.classList.remove('open'); });
+</script>
+</body>
+</html>
