@@ -124,6 +124,13 @@ def main():
         f.seek(0)
         if head.lstrip().startswith(('[', '{')):
             raw = json.load(f)
+            # 兼容 dict 包裹的采集输出: 取 rows/comments/data 键里的列表
+            if isinstance(raw, dict):
+                for key in ('rows', 'comments', 'items', 'data', 'list'):
+                    v = raw.get(key)
+                    if isinstance(v, list):
+                        raw = v
+                        break
         elif ',' in head and ('text' in head.lower() or 'content' in head.lower() or 'comment' in head.lower()):
             reader = csv.DictReader(f)
             raw = list(reader)
