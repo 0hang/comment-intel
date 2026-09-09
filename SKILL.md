@@ -96,7 +96,7 @@ python scripts/export.py        # GitHub Pages 版 / README mermaid / digest.md 
 
 多平台关键词采集 → 同一套分析流水线 → 飞书文档交付。步骤：
 
-1. **采集**：按 `references/collect.md` 对约 30 个关键词跑多平台（抖音 douyin MCP / 小红书 opencli / X twitter-cli / YouTube yt-dlp+代理 / B站 scripts/bili_collect.py），全部只读。
+1. **采集**：按 `references/collect.md` 对约 30 个关键词跑多平台（抖音 douyin MCP / 小红书 opencli / X twitter-cli / YouTube yt-dlp+代理 / B站 scripts/bili_collect.py / Reddit subreddit+read），全部只读。
 2. **格式化 + 词表定制 + 逐条抽取 + 建图渲染**：同上第 2-5 节。
 3. **产出飞书文档**（用 lark-doc 能力创建），标题「每日自媒体评论区情报 YYYY-MM-DD」，正文包含：
    - ① 当日关注点 TOP 榜（按提及次数，附次数）
